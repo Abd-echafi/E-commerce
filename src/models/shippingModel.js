@@ -20,6 +20,9 @@ const shippingSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0
+  },
+  wilaya_id: {
+    type: String,
   }
 }, {
   timestamps: true

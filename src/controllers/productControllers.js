@@ -1,5 +1,5 @@
 const Product = require('../models/productModel');
-const AppError = require('../utils/AppError');
+const AppError = require('../utils/AppError')
 const APIFeatures = require('../utils/feautures');
 //Create new product
 exports.createProduct = async (req, res, next) => {

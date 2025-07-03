@@ -10,6 +10,7 @@ const ProductRouter = require("./routes/productRoutes");
 const ShippingRouter = require('./routes/shippingRoutes')
 const CartRouter = require('./routes/cartRoutes');
 const settingsRouter = require('./routes/settingsRoutes')
+const orderRouter = require('./routes/orderRoutes');
 const { createServer } = require("http");
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/v1/product', ProductRouter)
 app.use('/api/v1/shipping', ShippingRouter)
 app.use('/api/v1/cart', CartRouter)
 app.use('/api/v1/settings', settingsRouter)
+app.use('/api/v1/order', orderRouter)
 // Handle 404 errors
 app.use((req, res, next) => {
     res.status(404).json({

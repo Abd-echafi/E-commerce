@@ -8,16 +8,36 @@ class APIFeautures {
 
     //filter method 
     filter = () => {
-        // simple filtering
-        const { minPrice, maxPrice, search, category } = this.queryfile;
+        const { minPrice, maxPrice, search, searchOrders, startDate, endDate, category, Orderstatus } = this.queryfile;
         const query = {};
-        if (search) query.model = { $regex: `^${search}`, $options: 'i' };
-        if (category) query.category.name = category;
-        if (minPrice) query.price = { ...query.price, $gte: Number(minPrice) };
-        if (maxPrice) query.price = { ...query.price, $lte: Number(maxPrice) };
+        if (search) {
+            query.model = { $regex: `^${search}`, $options: 'i' };
+        }
+        if (searchOrders) {
+            query['shippingDetails.phone'] = { $regex: searchOrders, $options: 'i' };
+        }
+        if (startDate) {
+            query.createdAt = { ...query.createdAt, $gte: new Date(startDate) };
+        }
+        if (endDate) {
+            query.createdAt = { ...query.createdAt, $lte: new Date(endDate) };
+        }
+        if (category) {
+            query['category.name'] = { $regex: category, $options: 'i' };
+        }
+        if (minPrice) {
+            query.price = { ...query.price, $gte: Number(minPrice) };
+        }
+        if (maxPrice) {
+            query.price = { ...query.price, $lte: Number(maxPrice) };
+        }
+        if (Orderstatus) {
+            query.status = Orderstatus;
+        }
         this.query = this.query.find(query);
         return this;
-    }
+    };
+
 
     sort = () => {
         if (!this.queryfile.sort) {
@@ -31,11 +51,13 @@ class APIFeautures {
     }
 
     paginate = () => {
-        const page = this.queryfile.page;
-        const skip = (page - 1) * 10;
-        this.query = this.query.skip(skip).limit(10);
-        return this
+        const page = parseInt(this.queryfile.page, 10) || 1;
+        const limit = parseInt(this.queryfile.limit, 10) || 10;
+        const skip = (page - 1) * limit;
+        this.query = this.query.skip(skip).limit(limit);
+        return this;
     }
+
 }
 
 module.exports = APIFeautures;

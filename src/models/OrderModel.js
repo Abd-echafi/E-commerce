@@ -28,14 +28,17 @@ const OrderSchema = new mongoose.Schema({
     phone: String,
     wilaya: String,
     commune: String,
-    type: String,
+    type: {
+      type: String,
+      enum: ["domicil", "stopdesk"]
+    },
   },
   totalAmount: Number,
   isPaid: Boolean,
   status: {
     type: String,
-    enum: ["Pending", "confirmed", "shipped", "retour", "delivered", "cancelled"],
-    default: 'pending'
+    enum: ["Pending", "Confirmed", "Shipped", "Retour", "Delivered", "Cancelled"],
+    default: 'Pending'
   },
   workerAssigned: {
     type: mongoose.Schema.Types.ObjectId,
