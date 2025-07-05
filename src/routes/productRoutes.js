@@ -4,7 +4,8 @@ const {
   getAllProducts,
   getProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getAllProductSalesStatistics
 } = require('../controllers/productControllers');
 const { protect, restrictTo } = require('../controllers/authControllers');
 const Cloudinary = require('../config/cloudinary');
@@ -15,7 +16,7 @@ const Router = express.Router();
 Router
   .route('/admin')
   .post(protect, restrictTo("admin"), upload.array("images"), Cloudinary.uploadMultiple, createProduct)
-
+Router.post('/worker', protect, restrictTo("admin"), upload.array("images"), Cloudinary.uploadMultiple, createProduct)
 Router
   .route('/admin/:id')
   .patch(protect, restrictTo("admin"), upload.array("images"), Cloudinary.uploadMultiple, updateProduct)
@@ -33,4 +34,7 @@ Router
 // all users and guest
 Router.route("/").get(getAllProducts);
 Router.route('/:id').get(getProduct)
+
+// statistics of products
+Router.post('/admin/statistics', protect, restrictTo("admin"), getAllProductSalesStatistics)
 module.exports = Router;

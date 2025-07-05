@@ -1,6 +1,7 @@
 const Product = require('../models/productModel');
 const AppError = require('../utils/AppError')
 const APIFeatures = require('../utils/feautures');
+const Order = require('../models/OrderModel');
 //Create new product
 exports.createProduct = async (req, res, next) => {
   try {
@@ -109,3 +110,124 @@ exports.deleteProduct = async (req, res, next) => {
     next(new AppError(err.message, 400))
   }
 };
+
+// get product sales statistics
+exports.getAllProductSalesStatistics = async (req, res, next) => {
+  try {
+    const { month, year } = req.body;
+
+    if (!month || !year) {
+      return next(new AppError("Please provide both month and year", 400));
+    }
+
+    // Create start and end of month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Aggregate order items by product and status
+    const result = await Order.aggregate([
+      {
+        $match: {
+          updatedAt: { $gte: startDate, $lte: endDate },
+          status: { $in: ["Delivered", "Retour"] }
+        }
+      },
+      { $unwind: "$orderItems" },
+      {
+        $group: {
+          _id: {
+            product: "$orderItems.product",
+            status: "$status"
+          },
+          quantity: { $sum: "$orderItems.quantity" }
+        }
+      }
+    ]);
+
+    // Get unique product IDs
+    const productIds = [...new Set(result.map(r => r._id.product.toString()))];
+
+    // Fetch product info
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productMap = {};
+    products.forEach(p => {
+      productMap[p._id.toString()] = p;
+    });
+
+    // Final totals
+    let totalRevenue = 0;
+    let totalProfit = 0;
+    let totalCost = 0;
+    let totalPackagingCost = 0;
+    let totalRetourCost = 0;
+
+    const breakdown = [];
+
+    for (const entry of result) {
+      const { product, status } = entry._id;
+      const quantity = entry.quantity;
+      const p = productMap[product.toString()];
+      if (!p) continue;
+
+      const price = p.price || 0;
+      const cost = p.costPerUnit || 0;
+      const profit = p.profit || 0;
+      const packagingCost = p.packagingCost || 0;
+
+      let confirmedQty = 0;
+      let retourQty = 0;
+
+      if (status === "Delivered") {
+        totalRevenue += quantity * price;
+        totalCost += quantity * cost;
+        totalProfit += quantity * profit;
+        totalPackagingCost += quantity * packagingCost;
+        confirmedQty = quantity;
+      }
+
+      if (status === "Retour") {
+        totalRetourCost += quantity * 200;
+        totalPackagingCost += quantity * packagingCost;
+        retourQty = quantity;
+      }
+
+      const existing = breakdown.find(b => b.productId === product.toString());
+
+      if (existing) {
+        existing.DeliveredQty += confirmedQty;
+        existing.retourQty += retourQty;
+      } else {
+        breakdown.push({
+          productId: product.toString(),
+          productName: p.name,
+          DeliveredQty: confirmedQty,
+          retourQty,
+          price,
+          cost,
+          profit,
+          packagingCost
+        });
+      }
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        month,
+        year,
+        summary: {
+          totalRevenue,
+          totalProfit,
+          totalCost,
+          totalPackagingCost,
+          totalRetourCost
+        },
+        breakdown // per product
+      }
+    });
+
+  } catch (err) {
+    next(new AppError(err.message, 500));
+  }
+};
+

@@ -153,7 +153,7 @@ exports.getAllOrders = async (req, res, next) => {
     const finalOrders = await features.query;
     res.status(200).json({ status: "success", number: finalOrders.length, orders: finalOrders });
   } catch (err) {
-
+    next(new AppError(err.message, 400));
   }
 }
 
@@ -281,3 +281,70 @@ exports.updateOrderStatus = async (req, res, next) => {
     next(new AppError(err.message, 400));
   }
 };
+
+// get my assigned orders data within specific time (worker)
+exports.getAssignedOrdersData = async (req, res, next) => {
+  try {
+    const worker = req.params.workerId
+    const user = req.user
+    if (user.role !== 'admin') {
+      if (user._id.toString() !== worker.toString()) {
+        return res.status(401).json({ status: "fail", message: "you can not access to another worker stats" })
+      }
+    }
+    let { date } = req.query;
+    let startDate, endDate;
+
+    const now = new Date();
+
+    if (date === 'Today') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Today at 00:00
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }
+
+    if (date === 'Last-Week') {
+      const lastWeekStart = new Date();
+      lastWeekStart.setDate(now.getDate() - 7);
+      startDate = new Date(lastWeekStart.getFullYear(), lastWeekStart.getMonth(), lastWeekStart.getDate()); // 7 days ago at 00:00
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }
+
+    if (date === 'Last-Month') {
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); // same day last month
+      startDate = new Date(lastMonthStart.getFullYear(), lastMonthStart.getMonth(), lastMonthStart.getDate()); // Start of that day
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }
+    let condition;
+    if (startDate && endDate) {
+      condition = {
+        updatedAt: {
+          $gte: startDate,
+          $lte: endDate
+        },
+      }
+    }
+
+    const orders = await Order.find({
+      ...condition,
+      workerAssigned: worker,
+    });
+    const confirmedCount = Object.values(orders).filter(order => order.status === 'Confirmed').length;
+    const cancelledCount = Object.values(orders).filter(order => order.status === 'Cancelled').length;
+    const DeliveredCount = Object.values(orders).filter(order => order.status === 'Delivered').length;
+    const returnedCount = Object.values(orders).filter(order => order.status === 'Retour').length;
+    const shippedCount = Object.values(orders).filter(order => order.status === 'Shipped').length;
+    const pendingCount = Object.values(orders).filter(order => order.status === 'Pending').length;
+    const statistics = {
+      Confirmed: confirmedCount,
+      Cacelled: cancelledCount,
+      Delivered: DeliveredCount,
+      Retour: returnedCount,
+      Shipped: shippedCount,
+      Pending: pendingCount,
+    }
+    res.status(200).json({ status: "success", data: statistics })
+  } catch (err) {
+    next(new AppError(err.message, 400));
+  }
+}
+
